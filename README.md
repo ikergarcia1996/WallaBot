@@ -11,7 +11,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Powered by Claude](https://img.shields.io/badge/LLM-Claude%20(Anthropic)-6b46c1?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Licencia](https://img.shields.io/badge/licencia-VibeCoded%20AI-Slop%20License%20v1.0-lightgrey)](LICENSE)
+[![Licencia](https://img.shields.io/badge/licencia-VibeCoded%20AI%20Slop%20License%20v1.0-lightgrey)](LICENSE)
 
 </div>
 
