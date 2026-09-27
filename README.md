@@ -131,6 +131,3 @@ Para una explicación **detallada** de cada pieza (el diseño general, por qué 
 
 WallaBot usa la API interna (no oficial) de Wallapop. Es un proyecto personal con fines educativos y de experimentación: no está afiliado a Wallapop, puede dejar de funcionar si cambian su backend, y el uso a gran escala podría entrar en conflicto con sus términos de servicio. Úsalo de forma responsable y bajo tu propia cuenta y riesgo.
 
-## 📄 Licencia
-
-Este proyecto se distribuye bajo la **PolyForm Noncommercial License 1.0.0** — de uso libre para cualquier fin no comercial. Si quieres darle un uso comercial, [contacta con el autor](LICENSE) primero. Todos los detalles en [LICENSE](LICENSE).
