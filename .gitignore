@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Wallapop saved login session (contains auth cookies — do not commit)
+storage_state.json
+
+.claude/
+
+# macOS
+.DS_Store
+
+# WallaBot saved run records
+sessions/

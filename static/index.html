@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WallaBot 🛒</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <style>
+    /* ---- Light theme (default) ---- */
+    :root {
+      --teal: #13c1ac;
+      --teal-dark: #0ea896;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1d2b2a;
+      --muted: #6b7c7a;
+      --border: #e3e8e8;
+      --user: #13c1ac;
+      --user-text: #ffffff;
+      --bot-bg: #eef2f2;
+      --chip-bg: #e7f8f5;
+      --hover: #fafcfc;
+      --row-border: #f0f3f3;
+      --over-bg: #fdeaea;
+      --over-text: #d14343;
+      --shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    /* ---- Dark theme ---- */
+    [data-theme="dark"] {
+      --teal: #16d4bd;
+      --teal-dark: #16d4bd;
+      --bg: #0f1715;
+      --card: #17211f;
+      --text: #e6efed;
+      --muted: #8ba39f;
+      --border: #26332f;
+      --user: #13c1ac;
+      --user-text: #06201c;
+      --bot-bg: #1e2a27;
+      --chip-bg: rgba(19,193,172,.16);
+      --hover: #1c2724;
+      --row-border: #222d2a;
+      --over-bg: rgba(209,67,67,.18);
+      --over-text: #f08a8a;
+      --shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+      transition: background .25s, color .25s;
+    }
+    header {
+      height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 20px;
+      background: var(--card); border-bottom: 1px solid var(--border);
+    }
+    header .logo-img { width: 30px; height: 30px; border-radius: 8px; }
+    header .logo { font-size: 20px; font-weight: 700; }
+    header .right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+    header .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5d3; }
+    .dot.thinking { background: var(--teal); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
+    .theme-btn { background: none; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 15px; width: 34px; height: 34px; color: var(--text); }
+    .theme-btn:hover { background: var(--hover); }
+
+    .app { display: flex; height: calc(100vh - 56px); position: relative; }
+
+    /* --- History sidebar --- */
+    .sidebar { width: 250px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width .2s ease; }
+    .sidebar.collapsed { width: 0; border-right: none; }
+    /* Small arrow tab at mid-height, glued to the sidebar's right edge, to
+       collapse/expand it without hunting for the header button. */
+    .sb-toggle {
+      position: absolute; top: 50%; left: 250px; transform: translateY(-50%);
+      width: 18px; height: 44px; border-radius: 0 8px 8px 0;
+      background: var(--card); border: 1px solid var(--border); border-left: none;
+      color: var(--muted); cursor: pointer; z-index: 5; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+      transition: left .2s ease; padding: 0;
+    }
+    .sb-toggle:hover { color: var(--text); background: var(--hover); }
+    .sidebar.collapsed ~ .sb-toggle { left: 0; }
+    .sb-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .sb-title-lbl { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+    #newBtn { background: var(--teal); color: var(--user-text); border: none; border-radius: 8px; padding: 6px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    #newBtn:hover { background: var(--teal-dark); }
+    .sb-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .sb-item { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 9px 10px; cursor: pointer; color: var(--text); }
+    .sb-item:hover { background: var(--hover); }
+    .sb-item.active { background: var(--chip-bg); }
+    .sb-item .sb-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sb-item .sb-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* --- Chat pane --- */
+    .chat { width: 40%; min-width: 360px; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--card); }
+    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
+    .msg.user { align-self: flex-end; background: var(--user); color: var(--user-text); border-bottom-right-radius: 4px; }
+    .msg.bot { align-self: flex-start; background: var(--bot-bg); color: var(--text); border-bottom-left-radius: 4px; display: flex; gap: 9px; align-items: flex-start; }
+    .msg-ico { font-size: 15px; line-height: 1.6; flex-shrink: 0; opacity: .65; }
+    .msg-body { flex: 1; min-width: 0; }
+    /* Final recommendation is highlighted with an accent border + tint + ✅ */
+    .msg.bot.final { max-width: 94%; background: var(--chip-bg); border-left: 3px solid var(--teal); }
+    .msg.bot.final .msg-ico { opacity: 1; }
+    .msg.bot.error { background: var(--over-bg); border-left: 3px solid var(--over-text); }
+    .msg.bot.error .msg-ico { opacity: 1; }
+    /* Markdown inside chat bubbles */
+    .msg-body strong { font-weight: 700; }
+    .msg-body h3, .msg-body h4 { margin: .6em 0 .3em; font-size: 14.5px; font-weight: 700; }
+    .msg-body p { margin: .35em 0; }
+    .msg-body ul { margin: .35em 0; padding-left: 20px; }
+    .msg-body li { margin: .18em 0; }
+    .msg-body > :first-child { margin-top: 0; }
+    .msg-body > :last-child { margin-bottom: 0; }
+    .model-chip { display: inline-block; margin-top: 7px; font-size: 10px; font-weight: 600; letter-spacing: .3px; color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; }
+    .hint { color: var(--muted); font-size: 13px; text-align: center; margin: auto; max-width: 320px; }
+
+    /* typing indicator */
+    .typing { align-self: flex-start; background: var(--bot-bg); border-radius: 14px; border-bottom-left-radius: 4px; padding: 12px 16px; display: flex; gap: 5px; }
+    .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+    .typing span:nth-child(2) { animation-delay: .18s; }
+    .typing span:nth-child(3) { animation-delay: .36s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-5px); opacity: 1; } }
+
+    .composer { border-top: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .composer .row { display: flex; gap: 8px; }
+    #input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; resize: none; font-family: inherit; background: var(--card); color: var(--text); }
+    #input:disabled { opacity: .55; }
+    .budget-wrap { position: relative; }
+    .budget-wrap .cur { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
+    #budget { width: 170px; padding: 10px 10px 10px 26px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--card); color: var(--text); }
+    #location { width: 150px; padding: 10px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--card); color: var(--text); }
+    #model { margin-left: auto; padding: 10px 8px; border: 1px solid var(--border); border-radius: 10px; font-size: 13.5px; background: var(--card); color: var(--text); cursor: pointer; }
+    #send { padding: 10px 20px; background: var(--teal); color: var(--user-text); border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    #send:hover:not(:disabled) { background: var(--teal-dark); }
+    #send:disabled { opacity: .5; cursor: not-allowed; }
+    #send.stop { background: var(--over-text); }
+    #send.stop:hover:not(:disabled) { filter: brightness(.9); background: var(--over-text); }
+
+    /* --- Board pane --- */
+    .board-pane { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 10px; }
+
+    .req-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
+    .req-card .summary { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .req-list { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--text); }
+    .req-list li { margin: 3px 0; }
+    .budget-chip { display: inline-block; background: var(--chip-bg); color: var(--teal-dark); font-weight: 700; font-size: 13px; padding: 3px 10px; border-radius: 20px; margin-left: 8px; }
+
+    .options { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .option { position: relative; flex: 1 1 320px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; animation: fade .35s ease; }
+    .option.recommended { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal), var(--shadow); }
+    .ribbon { background: var(--teal); color: var(--user-text); font-size: 11px; font-weight: 700; text-align: center; padding: 3px; letter-spacing: .3px; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .option-head { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .option-head h3 { margin: 0 0 4px; font-size: 15px; }
+    .option-head .note { font-size: 12.5px; color: var(--muted); }
+    .product { display: flex; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--row-border); text-decoration: none; color: inherit; }
+    .product:hover { background: var(--hover); }
+    .product img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; background: var(--bot-bg); flex-shrink: 0; }
+    .product .cat { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--teal-dark); letter-spacing: .3px; }
+    .product .pt { font-size: 13.5px; font-weight: 600; margin: 1px 0; }
+    .product .pnote { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .product .pmeta { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+    .product .seller { font-size: 11.5px; font-weight: 600; color: var(--teal-dark); }
+    .product .tag-reserved { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--over-text); background: var(--over-bg); padding: 1px 6px; border-radius: 10px; }
+    .product .price { margin-left: auto; font-size: 15px; font-weight: 700; white-space: nowrap; }
+    .option-foot { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    .option-foot .total { font-weight: 700; font-size: 17px; }
+    .badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+    .badge.ok { background: var(--chip-bg); color: var(--teal-dark); }
+    .badge.over { background: var(--over-bg); color: var(--over-text); }
+
+    /* Collapsible Actividad: clickable header, live pulse, and a summary line
+       shown when collapsed (auto-collapses after the turn finishes). */
+    .activity-head { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 8px; }
+    .activity-pulse { display: none; font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--teal-dark); align-items: center; gap: 5px; }
+    .activity-pulse.on { display: inline-flex; }
+    .activity-pulse .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: pulse 1s infinite; }
+    .activity-summary { display: none; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--muted); }
+    .chevron { margin-left: auto; font-size: 11px; color: var(--muted); transition: transform .15s; }
+    .activity-section.collapsed .activity { display: none; }
+    .activity-section.collapsed .activity-summary { display: inline; }
+    .activity-section.collapsed .chevron { transform: rotate(-90deg); }
+    /* Subtle animated left border on the activity box itself while running */
+    .activity { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); transition: border-left-color .3s; }
+    .activity.running { border-left-color: var(--teal); }
+    .log-line { font-size: 12.5px; color: var(--text); font-family: ui-monospace, Menlo, monospace; padding: 2px 0; }
+    .log-line .t { color: var(--muted); margin-right: 8px; }
+    .empty { color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 800px) {
+      .app { flex-direction: column; }
+      .chat { width: 100%; height: 50%; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <button class="theme-btn" id="sidebarBtn" title="Historial">☰</button>
+    <img class="logo-img" src="/logo.png" alt="WallaBot" />
+    <span class="logo">WallaBot</span>
+    <div class="right">
+      <span class="status"><span class="dot" id="dot"></span><span id="statusText">Listo</span></span>
+      <button class="theme-btn" id="themeBtn" title="Cambiar tema">🌙</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <!-- History sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <span class="sb-title-lbl">Historial</span>
+        <button id="newBtn" title="Nueva sesión">＋ Nueva</button>
+      </div>
+      <div class="sb-list" id="sbList"><div class="empty">Cargando…</div></div>
+    </aside>
+    <button class="sb-toggle" id="sbToggle" title="Mostrar/ocultar historial">‹</button>
+
+    <!-- Chat -->
+    <div class="chat">
+      <div class="messages" id="messages">
+        <div class="hint">Describe lo que quieres comprar — p. ej. <em>"el mejor PC gaming que pueda conseguir por 1000€"</em>. El presupuesto es opcional; sin él buscaré la opción más barata que cumpla.</div>
+      </div>
+      <div class="composer">
+        <textarea id="input" rows="2" placeholder="¿Qué estás buscando?"></textarea>
+        <div class="row">
+          <div class="budget-wrap">
+            <span class="cur">€</span>
+            <input id="budget" type="number" min="0" placeholder="Presupuesto" />
+          </div>
+          <input id="location" type="text" list="provinceList" placeholder="📍 Provincia" title="Tu provincia (para filtrar por envío/cercanía)" autocomplete="off" />
+          <datalist id="provinceList"></datalist>
+          <select id="model" title="Modelo">
+            <option value="haiku">Haiku</option>
+            <option value="sonnet" selected>Sonnet</option>
+            <option value="opus">Opus</option>
+          </select>
+          <button id="send">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-pane">
+      <div id="reqWrap"></div>
+      <div>
+        <p class="section-title">Opciones recomendadas</p>
+        <div class="options" id="board"><div class="empty">El agente irá construyendo opciones aquí según busca…</div></div>
+      </div>
+      <div class="activity-section" id="activitySection">
+        <p class="section-title activity-head" id="activityHead">
+          <span>Actividad</span>
+          <span class="activity-pulse" id="activityPulse"><span class="live-dot"></span>en vivo</span>
+          <span class="activity-summary" id="activitySummary"></span>
+          <span class="chevron" id="activityChevron">▾</span>
+        </p>
+        <div class="activity" id="activity"><div class="empty">Sin actividad todavía.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const messages = $("messages"), board = $("board"), activity = $("activity");
+    let openBotEl = null, openBotBody = null, openBotRaw = "", busy = false;
+
+    // ---- Theme (persisted, defaults to system preference) ----
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      $("themeBtn").textContent = theme === "dark" ? "☀️" : "🌙";
+      localStorage.setItem("wallabot-theme", theme);
+    }
+    const savedTheme = localStorage.getItem("wallabot-theme")
+      || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    applyTheme(savedTheme);
+    $("themeBtn").onclick = () =>
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+
+    // ---- Markdown (safe: escape first, then format) ----
+    // Inline version: escapes + **bold** + line breaks. Used for short strings
+    // (requirement lines, option titles/notes) where block elements aren't wanted.
+    function md(text) {
+      const esc = String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return esc.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+    }
+    // Block version: also renders ## headings and - bullet lists into real HTML.
+    // Used for the agent's chat messages so the final summary looks clean.
+    function mdBlock(text) {
+      const inline = (s) =>
+        String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      let html = "", inList = false;
+      for (const rawLine of String(text).split("\n")) {
+        const line = rawLine.trim();
+        const bullet = line.match(/^[-*]\s+(.*)/);
+        const heading = line.match(/^(#{1,4})\s+(.*)/);
+        if (bullet) {
+          if (!inList) { html += "<ul>"; inList = true; }
+          html += `<li>${inline(bullet[1])}</li>`;
+          continue;
+        }
+        if (inList) { html += "</ul>"; inList = false; }
+        if (heading) {
+          const lvl = Math.min(heading[1].length + 2, 4); // # -> h3, ## -> h4 cap
+          html += `<h${lvl}>${inline(heading[2])}</h${lvl}>`;
+        } else if (line) {
+          html += `<p>${inline(line)}</p>`;
+        }
+      }
+      if (inList) html += "</ul>";
+      return html;
+    }
+    const euro = (n) => "€" + Number(n || 0).toLocaleString("es-ES", { maximumFractionDigits: 0 });
+
+    function addUserMsg(text) {
+      const el = document.createElement("div");
+      el.className = "msg user";
+      el.textContent = text;
+      const hint = messages.querySelector(".hint");
+      if (hint) hint.remove();
+      messages.appendChild(el);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // ---- Typing indicator (animated dots while the agent works) ----
+    let typingEl = null;
+    function showTyping() {
+      if (!typingEl) {
+        typingEl = document.createElement("div");
+        typingEl.className = "typing";
+        typingEl.innerHTML = "<span></span><span></span><span></span>";
+      }
+      messages.appendChild(typingEl); // move to bottom
+      messages.scrollTop = messages.scrollHeight;
+    }
+    function hideTyping() {
+      if (typingEl && typingEl.parentNode) typingEl.parentNode.removeChild(typingEl);
+    }
+
+    function appendBotDelta(text) {
+      hideTyping();
+      if (!openBotEl) {
+        openBotEl = document.createElement("div");
+        openBotEl.className = "msg bot";
+        openBotEl.innerHTML = '<span class="msg-ico">💬</span><div class="msg-body"></div>';
+        messages.appendChild(openBotEl);
+        openBotBody = openBotEl.querySelector(".msg-body");
+        openBotRaw = "";
+      }
+      openBotRaw += text;
+      openBotBody.innerHTML = mdBlock(openBotRaw);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Highlight the turn's last bot message as the final recommendation (✅).
+    // Error bubbles (see addErrorMessage) already have their own styling/icon
+    // and must never be relabelled as the "final" recommendation.
+    function markFinal() {
+      const bots = messages.querySelectorAll(".msg.bot:not(.error)");
+      const last = bots[bots.length - 1];
+      if (last && !last.classList.contains("final")) {
+        last.classList.add("final");
+        const ico = last.querySelector(".msg-ico");
+        if (ico) ico.textContent = "✅";
+      }
+    }
+
+    // Stamp a small model chip (Haiku/Sonnet/Opus) at the bottom of a bot bubble.
+    function stampModel(bubbleEl, label) {
+      if (!bubbleEl || !label) return;
+      const body = bubbleEl.querySelector(".msg-body");
+      if (body && !body.querySelector(".model-chip")) {
+        body.insertAdjacentHTML("beforeend", `<div class="model-chip">${label}</div>`);
+      }
+    }
+
+    // Render a turn-ending error as its own distinct (never "final") bubble.
+    function addErrorMessage(text) {
+      hideTyping();
+      const el = document.createElement("div");
+      el.className = "msg bot error";
+      el.innerHTML = '<span class="msg-ico">⚠️</span><div class="msg-body"></div>';
+      el.querySelector(".msg-body").innerHTML = mdBlock(text);
+      messages.appendChild(el);
+      openBotEl = null; openBotBody = null; openBotRaw = "";
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function setBusy(v) {
+      busy = v;
+      const btn = $("send");
+      // While working, the button becomes a red "Detener" (still clickable to
+      // cancel); when idle it's "Enviar". The input is disabled while working.
+      btn.textContent = v ? "Detener" : "Enviar";
+      btn.classList.toggle("stop", v);
+      btn.disabled = false;
+      $("input").disabled = v;
+    }
+
+    // Build the one-line summary shown when the activity panel is collapsed.
+    function activitySummaryText() {
+      const lines = [...activity.querySelectorAll(".log-line")].map((l) => l.textContent);
+      if (!lines.length) return "";
+      const n = (kw) => lines.filter((t) => t.includes(kw)).length;
+      const s = n("Buscando"), i = n("Analizando anuncio"), w = n("Búsqueda web");
+      const parts = [];
+      if (s) parts.push(`🔎 ${s} búsqueda${s > 1 ? "s" : ""}`);
+      if (i) parts.push(`🔬 ${i} anuncio${i > 1 ? "s" : ""}`);
+      if (w) parts.push(`🌐 ${w} web`);
+      return parts.length ? parts.join(" · ") : `${lines.length} pasos`;
+    }
+    function setActivityCollapsed(collapsed) {
+      if (collapsed) $("activitySummary").textContent = activitySummaryText();
+      $("activitySection").classList.toggle("collapsed", collapsed);
+    }
+
+    function setStatus(state) {
+      const labels = { thinking: "Pensando…", idle: "Listo", disconnected: "Desconectado" };
+      $("statusText").textContent = labels[state] || state;
+      $("dot").className = "dot" + (state === "thinking" ? " thinking" : "");
+      const running = state === "thinking";
+      $("activityPulse").classList.toggle("on", running);
+      $("activity").classList.toggle("running", running);
+      if (state === "thinking") { setBusy(true); showTyping(); setActivityCollapsed(false); }
+      if (state === "idle") {
+        setBusy(false); hideTyping(); markFinal();
+        // Auto-collapse the activity once done, if there's anything to summarize.
+        if (activity.querySelector(".log-line")) setActivityCollapsed(true);
+      }
+    }
+
+    function renderRequirements(ev) {
+      const items = (ev.requirements || []).map((r) => `<li>${md(r)}</li>`).join("");
+      const chip = ev.budget
+        ? `<span class="budget-chip">Presupuesto ${euro(ev.budget)}</span>`
+        : `<span class="budget-chip">La más barata que cumpla</span>`;
+      $("reqWrap").innerHTML = `
+        <p class="section-title">Requisitos</p>
+        <div class="req-card">
+          <div class="summary">${md(ev.summary || "")} ${chip}</div>
+          <ul class="req-list">${items}</ul>
+        </div>`;
+    }
+
+    let currentBudget = null;
+    // Structured seller trust badge (⭐ rating · N ventas), if we have the data.
+    function sellerBadge(s) {
+      if (!s) return "";
+      const bits = [];
+      if (s.rating != null) bits.push(`⭐ ${s.rating}`);
+      if (s.sales_count != null) bits.push(`${s.sales_count} ventas`);
+      return bits.length ? `<span class="seller">${bits.join(" · ")}</span>` : "";
+    }
+    function renderBoard(data) {
+      const options = data.options || [];
+      if (!options.length) { board.innerHTML = '<div class="empty">Aún no hay opciones.</div>'; return; }
+      board.innerHTML = "";
+      for (const opt of options) {
+        const total = (opt.products || []).reduce((s, p) => s + (p.price || 0), 0);
+        const rows = (opt.products || []).map((p) => {
+          const img = p.thumbnail ? `<img src="${p.thumbnail}" alt="">` : `<img alt="">`;
+          const note = p.note ? `<div class="pnote">${md(p.note)}</div>` : "";
+          const reserved = p.reserved ? `<span class="tag-reserved">Reservado</span>` : "";
+          const meta = sellerBadge(p.seller);
+          const metaRow = (meta || reserved) ? `<div class="pmeta">${meta}${reserved}</div>` : "";
+          const inner = `${img}<div style="flex:1"><div class="cat">${p.category || ""}</div><div class="pt">${md(p.title || "")}</div>${note}${metaRow}</div><div class="price">${euro(p.price)}</div>`;
+          return p.url ? `<a class="product" href="${p.url}" target="_blank" rel="noopener">${inner}</a>` : `<div class="product">${inner}</div>`;
+        }).join("");
+        let badge = "";
+        if (currentBudget) {
+          const ok = total <= currentBudget;
+          badge = `<span class="badge ${ok ? "ok" : "over"}">${ok ? "dentro de presupuesto" : "se pasa " + euro(total - currentBudget)}</span>`;
+        }
+        const ribbon = opt.recommended ? `<div class="ribbon">★ Recomendado</div>` : "";
+        const card = document.createElement("div");
+        card.className = "option" + (opt.recommended ? " recommended" : "");
+        card.innerHTML = `
+          ${ribbon}
+          <div class="option-head"><h3>${md(opt.title || "Opción")}</h3>${opt.note ? `<div class="note">${md(opt.note)}</div>` : ""}</div>
+          ${rows}
+          <div class="option-foot"><span class="total">${euro(total)}</span>${badge}</div>`;
+        board.appendChild(card);
+      }
+    }
+
+    function addLog(text) {
+      const empty = activity.querySelector(".empty");
+      if (empty) empty.remove();
+      const line = document.createElement("div");
+      line.className = "log-line";
+      const now = new Date().toLocaleTimeString("es-ES");
+      line.innerHTML = `<span class="t">${now}</span>${text.replace(/</g, "&lt;")}`;
+      activity.appendChild(line);
+      activity.scrollTop = activity.scrollHeight;
+    }
+
+    // ---- History sidebar + session switching ----
+    const HINT_HTML = '<div class="hint">Describe lo que quieres comprar — p. ej. <em>"el mejor PC gaming que pueda conseguir por 1000€"</em>. El presupuesto es opcional; sin él buscaré la opción más barata que cumpla.</div>';
+
+    function resetUI() {
+      messages.innerHTML = HINT_HTML;
+      board.innerHTML = '<div class="empty">El agente irá construyendo opciones aquí según busca…</div>';
+      activity.innerHTML = '<div class="empty">Sin actividad todavía.</div>';
+      activity.classList.remove("running");
+      $("activityPulse").classList.remove("on");
+      $("activitySection").classList.remove("collapsed");
+      $("reqWrap").innerHTML = "";
+      currentBudget = null; openBotEl = null; openBotBody = null; typingEl = null;
+    }
+
+    // Render a full (non-streamed) bot message, used when restoring a session.
+    function addBotMessage(text, model) {
+      const el = document.createElement("div");
+      el.className = "msg bot";
+      el.innerHTML = '<span class="msg-ico">💬</span><div class="msg-body"></div>';
+      el.querySelector(".msg-body").innerHTML = mdBlock(text);
+      stampModel(el, model);
+      messages.appendChild(el);
+    }
+    function renderRestoredChat(turns) {
+      messages.innerHTML = "";
+      for (const t of turns) t.role === "user" ? addUserMsg(t.text) : addBotMessage(t.text, t.model);
+      markFinal();
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function relTime(sec) {
+      const d = Date.now() / 1000 - (sec || 0);
+      if (d < 60) return "ahora";
+      if (d < 3600) return `hace ${Math.floor(d / 60)} min`;
+      if (d < 86400) return `hace ${Math.floor(d / 3600)} h`;
+      return `hace ${Math.floor(d / 86400)} d`;
+    }
+
+    async function fetchSessions() {
+      try {
+        const list = await (await fetch("/api/sessions")).json();
+        const el = $("sbList");
+        if (!list.length) { el.innerHTML = '<div class="empty">Sin sesiones.</div>'; return; }
+        el.innerHTML = "";
+        for (const s of list) {
+          const item = document.createElement("button");
+          item.className = "sb-item" + (s.id === currentSessionId ? " active" : "");
+          item.innerHTML = `<div class="sb-title">${(s.title || s.id).replace(/</g, "&lt;")}</div>`
+            + `<div class="sb-time">${relTime(s.updated)}</div>`;
+          item.onclick = () => loadSession(s.id);
+          el.appendChild(item);
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    // ---- WebSocket connection ----
+    let ws = null, currentSessionId = null;
+
+    function handleEvent(e) {
+      const ev = JSON.parse(e.data);
+      switch (ev.type) {
+        case "session":
+          currentSessionId = ev.id;
+          localStorage.setItem("wallabot-session", ev.id);
+          history.replaceState(null, "", "?session=" + ev.id);
+          // Restore the session's saved location into the field, if any.
+          if (ev.place) $("location").value = ev.place;
+          fetchSessions();
+          break;
+        case "restore": renderRestoredChat(ev.chat); break;
+        case "status": setStatus(ev.state); if (ev.state === "idle") fetchSessions(); break;
+        case "text_delta": appendBotDelta(ev.text); break;
+        case "message_done": stampModel(openBotEl, ev.model); openBotEl = null; if (busy) showTyping(); break;
+        case "log": addLog(ev.text); break;
+        case "requirements": currentBudget = ev.budget; renderRequirements(ev); break;
+        case "board": renderBoard(ev.board); break;
+        case "error": addErrorMessage(ev.text); break;
+      }
+    }
+
+    function connect(sessionId) {
+      const q = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
+      ws = new WebSocket(`ws://${location.host}/ws${q}`);
+      ws.onmessage = handleEvent;
+      ws.onopen = () => { setBusy(false); setStatus("idle"); };
+      ws.onclose = () => {
+        setStatus("disconnected"); hideTyping();
+        // Disconnected: nothing to send or stop.
+        $("send").textContent = "Enviar"; $("send").classList.remove("stop");
+        $("send").disabled = true; $("input").disabled = true;
+      };
+    }
+
+    // Tear down the current connection and start (or resume) another session.
+    function switchTo(sessionId) {
+      if (ws) { ws.onclose = null; ws.onmessage = null; try { ws.close(); } catch (e) {} }
+      resetUI();
+      connect(sessionId);
+    }
+    function loadSession(id) { if (id !== currentSessionId) switchTo(id); }
+
+    // Remember the chosen model across reloads.
+    $("model").value = localStorage.getItem("wallabot-model") || "sonnet";
+    $("model").onchange = () => localStorage.setItem("wallabot-model", $("model").value);
+
+    // Remember the user's province across reloads.
+    $("location").value = localStorage.getItem("wallabot-location") || "";
+    $("location").onchange = () => localStorage.setItem("wallabot-location", $("location").value.trim());
+
+    // Populate the "Provincia" autocomplete from the backend's canonical list.
+    async function loadProvinceList() {
+      try {
+        const names = await (await fetch("/api/provinces")).json();
+        $("provinceList").innerHTML = names.map((n) => `<option value="${n}">`).join("");
+      } catch (e) { /* autocomplete is a nicety; ignore failures */ }
+    }
+    loadProvinceList();
+
+    // ISO 3166-2:ES autonomous-community codes -> a Spanish display name.
+    // Mirrors geo.py's REGION_CODE_TO_PLACE — IP geolocation only pinpoints the
+    // community, not the exact province, so this is just a starting suggestion
+    // the user can refine via the autocomplete above.
+    const REGION_CODE_TO_PLACE = {
+      AN: "Andalucía", AR: "Aragón", AS: "Asturias", CB: "Cantabria", CE: "Ceuta",
+      CL: "Castilla y León", CM: "Castilla-La Mancha", CN: "Canarias", CT: "Cataluña",
+      EX: "Extremadura", GA: "Galicia", IB: "Illes Balears", MC: "Murcia",
+      MD: "Madrid", ML: "Melilla", NC: "Navarra", PV: "País Vasco", RI: "La Rioja",
+      VC: "Comunidad Valenciana",
+    };
+
+    // Best-effort: if the user hasn't set a province yet, guess it from their IP
+    // via a free public geolocation lookup. Never blocks the UI and fails silently
+    // — it's just a starting suggestion, still fully editable.
+    async function autodetectLocation() {
+      if ($("location").value.trim()) return; // already set (saved or resumed)
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 3000);
+        const res = await fetch("https://ipapi.co/json/", { signal: ctrl.signal });
+        clearTimeout(timeout);
+        const data = await res.json();
+        const place = REGION_CODE_TO_PLACE[(data.region_code || "").toUpperCase()];
+        if (place && !$("location").value.trim()) {
+          $("location").value = place;
+          localStorage.setItem("wallabot-location", place);
+        }
+      } catch (e) { /* no internet access to the geolocation service, etc. — skip */ }
+    }
+    autodetectLocation();
+
+    $("newBtn").onclick = () => {
+      currentSessionId = null;
+      localStorage.removeItem("wallabot-session");
+      switchTo(null);
+    };
+    // Show/hide the history sidebar, remembering the choice across reloads.
+    function setSidebar(collapsed) {
+      $("sidebar").classList.toggle("collapsed", collapsed);
+      $("sbToggle").textContent = collapsed ? "›" : "‹";
+      localStorage.setItem("wallabot-sidebar", collapsed ? "1" : "0");
+    }
+    $("sidebarBtn").onclick = () => setSidebar(!$("sidebar").classList.contains("collapsed"));
+    $("sbToggle").onclick = () => setSidebar(!$("sidebar").classList.contains("collapsed"));
+    // Clicking the Actividad header toggles the panel manually.
+    $("activityHead").onclick = () =>
+      setActivityCollapsed(!$("activitySection").classList.contains("collapsed"));
+    setSidebar(localStorage.getItem("wallabot-sidebar") === "1");
+
+    // ---- Sending ----
+    function send() {
+      if (busy) return;
+      const text = $("input").value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+      const budget = $("budget").value ? Number($("budget").value) : null;
+      const model = $("model").value;
+      const location = $("location").value.trim() || null;
+      addUserMsg(text);
+      ws.send(JSON.stringify({ text, budget, model, location }));
+      $("input").value = "";
+      setBusy(true);
+      showTyping();
+    }
+    // Cancel the in-progress turn.
+    function stopTurn() {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop" }));
+    }
+    // The single button acts as Send when idle and Stop while a turn runs.
+    $("send").onclick = () => { if (busy) stopTurn(); else send(); };
+    $("input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+
+    // ---- Init: resume last/URL session if any, else start fresh ----
+    const initialSession = new URLSearchParams(location.search).get("session")
+      || localStorage.getItem("wallabot-session");
+    connect(initialSession);
+    fetchSessions();
+  </script>
+</body>
+</html>
